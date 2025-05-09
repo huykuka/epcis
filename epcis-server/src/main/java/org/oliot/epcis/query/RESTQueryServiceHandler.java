@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
-
+import java.util.Map;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
 
@@ -178,29 +178,31 @@ public class RESTQueryServiceHandler {
 	}
 
 	public static JsonObject getJsonBody(RoutingContext routingContext) {
-		JsonObject query = null;
 		RequestBody body = routingContext.body();
-		if (body.isEmpty()) {
-
-			MultiMap m = routingContext.request().params();
-			Iterator<Entry<String, String>> iter = m.iterator();
-			while (iter.hasNext()) {
-				try {
-					String k = iter.next().getKey();
-					query = new JsonObject(k);
-					break;
-				} catch (Exception e) {
-
-				}
+		if (!body.isEmpty()) {
+			try {
+				return body.asJsonObject();
+			} catch (Exception e) {
+				return null;
 			}
 		} else {
-			try {
-				query = body.asJsonObject();
-			} catch (Exception e) {
-
+			// Use the QueryParameterParser to build a JsonObject with proper types
+			// This will automatically convert query parameters to their appropriate types
+			// based on the schema definition
+			MultiMap params = routingContext.queryParams();
+			
+			// If there are no query parameters, return an empty JsonObject
+			if (params.isEmpty()) {
+				return new JsonObject();
 			}
+			
+			// Parse query parameters into a strongly-typed POJO
+			org.oliot.epcis.query.model.EPCISQuery parsedQuery = 
+				org.oliot.epcis.query.model.QueryParameterParser.parseQueryParams(params);
+			
+			// Convert the POJO back to a JsonObject with proper types
+			return org.oliot.epcis.query.model.QueryParameterParser.toJsonObject(parsedQuery);
 		}
-		return query;
 	}
 
 	public static Poll getPoll(RoutingContext routingContext) throws ValidationException, ImplementationException {
